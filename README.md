@@ -1,1 +1,1 @@
-# reactive-scala-labs
+Konrad Bogusz
