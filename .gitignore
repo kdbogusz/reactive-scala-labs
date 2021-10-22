@@ -17,7 +17,6 @@ project/plugins/project/
 .worksheet
 .idea
 .bloop
-.bsp
 .metals
 metals.sbt
 .vscode
