@@ -14,7 +14,8 @@ object TypedCartActor {
   case class AddItem(item: Any)                                             extends Command
   case class RemoveItem(item: Any)                                          extends Command
   case object ExpireCart                                                    extends Command
-  case class StartCheckout(orderManagerRef: ActorRef[OrderManager.Command]) extends Command
+  case class StartCheckout(actorEventMapper: ActorRef[TypedCartActor.Event], checkoutEventMapper: ActorRef[TypedCheckout.Event]) extends Command
+  case class StartCheckoutOld(orderManagerRef: ActorRef[OrderManager.Command]) extends Command
   case object ConfirmCheckoutCancelled                                      extends Command
   case object ConfirmCheckoutClosed                                         extends Command
   case class GetItems(sender: ActorRef[Cart])                               extends Command // command made to make testing easier
@@ -37,9 +38,12 @@ class TypedCartActor {
     (context, msg) =>
       msg match {
         case AddItem(item) =>
-          scheduleTimer(context)
           nonEmpty(Cart.empty.addItem(item), scheduleTimer(context))
-        case _ => Behaviors.same
+        case GetItems(sender) =>
+          sender ! Cart.apply(Seq())
+          Behaviors.same
+        case _ =>
+          Behaviors.same
       }
   )
 
@@ -48,22 +52,33 @@ class TypedCartActor {
       msg match {
         case AddItem(item) =>
           timer.cancel()
-          scheduleTimer(context)
           nonEmpty(cart.addItem(item), scheduleTimer(context))
         case RemoveItem(item) if cart.contains(item) =>
           timer.cancel()
           if (cart.size == 1) {
             empty
           } else {
-            scheduleTimer(context)
             nonEmpty(cart.removeItem(item), scheduleTimer(context))
           }
-        case StartCheckout =>
+        case StartCheckout(actorEventMapper, checkoutEventMapper) =>
           timer.cancel()
+          val checkout = context.spawn(new TypedCheckout(Some(context.self), Some(checkoutEventMapper)).start, "checkout")
+          checkout ! TypedCheckout.StartCheckout
+          actorEventMapper ! CheckoutStarted(checkout)
+          inCheckout(cart)
+        case StartCheckoutOld(orderManagerRef) =>
+          timer.cancel()
+          val checkout = context.spawn(new TypedCheckout(Some(context.self)).start, "checkout")
+          checkout ! TypedCheckout.StartCheckout
+          orderManagerRef ! OrderManager.ConfirmCheckoutStarted(checkout)
           inCheckout(cart)
         case ExpireCart =>
           empty
-        case _ => Behaviors.same
+        case GetItems(sender) =>
+          sender ! Cart.apply(cart.items)
+          Behaviors.same
+        case _ =>
+          Behaviors.same
       }
   )
 
@@ -71,11 +86,11 @@ class TypedCartActor {
     (context, msg) =>
       msg match {
         case ConfirmCheckoutCancelled =>
-          scheduleTimer(context)
           nonEmpty(cart, scheduleTimer(context))
         case ConfirmCheckoutClosed =>
           empty
-        case _ => Behaviors.same
+        case _ =>
+          Behaviors.same
       }
   )
 

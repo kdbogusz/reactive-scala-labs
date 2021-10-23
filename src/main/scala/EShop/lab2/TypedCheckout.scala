@@ -3,10 +3,10 @@ package EShop.lab2
 import akka.actor.Cancellable
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import scala.language.postfixOps
 
+import scala.language.postfixOps
 import scala.concurrent.duration._
-import EShop.lab3.OrderManager
+import EShop.lab3.{OrderManager, Payment}
 
 object TypedCheckout {
 
@@ -25,12 +25,13 @@ object TypedCheckout {
   case object ConfirmPaymentReceived                                                         extends Command
 
   sealed trait Event
-  case object CheckOutClosed                           extends Event
-  case class PaymentStarted(paymentRef: ActorRef[Any]) extends Event
+  case object CheckOutClosed                                       extends Event
+  case class PaymentStarted(paymentRef: ActorRef[Payment.Command]) extends Event
 }
 
 class TypedCheckout(
-  cartActor: ActorRef[TypedCartActor.Command]
+  cartActor: Option[ActorRef[TypedCartActor.Command]] = None,
+  checkoutEventMapper: Option[ActorRef[TypedCheckout.Event]] = None
 ) {
   import TypedCheckout._
 
@@ -42,9 +43,9 @@ class TypedCheckout(
       msg match {
         case StartCheckout =>
           def timer: Cancellable = context.scheduleOnce(checkoutTimerDuration, context.self, ExpireCheckout)
-          timer
           selectingDelivery(timer)
-        case _ => Behaviors.same
+        case _ =>
+          Behaviors.same
       }
   )
 
@@ -54,10 +55,13 @@ class TypedCheckout(
         case ExpireCheckout =>
           cancelled
         case SelectDeliveryMethod(method) =>
-          selectingPaymentMethod(timer)
+          timer.cancel()
+          def newTimer: Cancellable = context.scheduleOnce(checkoutTimerDuration, context.self, ExpireCheckout)
+          selectingPaymentMethod(newTimer)
         case CancelCheckout =>
           cancelled
-        case _ => Behaviors.same
+        case _ =>
+          Behaviors.same
       }
   )
 
@@ -66,13 +70,21 @@ class TypedCheckout(
       msg match {
         case ExpireCheckout =>
           cancelled
-        case SelectPayment(payment) =>
-          def timer: Cancellable = context.scheduleOnce(paymentTimerDuration, context.self, ExpirePayment)
-          timer
-          processingPayment(timer)
+        case SelectPayment(payment, orderManagerRef) =>
+          checkoutEventMapper match {
+            case None =>
+              def timer: Cancellable = context.scheduleOnce(paymentTimerDuration, context.self, ExpirePayment)
+              orderManagerRef ! OrderManager.ConfirmPaymentStarted(context.spawn(new Payment(payment, orderManagerRef, context.self).start, "payment"))
+              processingPayment(timer)
+            case Some(mapper) =>
+              def timer: Cancellable = context.scheduleOnce(paymentTimerDuration, context.self, ExpirePayment)
+              mapper ! PaymentStarted(context.spawn(new Payment(payment, orderManagerRef, context.self).start, "payment"))
+              processingPayment(timer)
+          }
         case CancelCheckout =>
           cancelled
-        case _ => Behaviors.same
+        case _ =>
+          Behaviors.same
       }
   )
 
@@ -80,7 +92,16 @@ class TypedCheckout(
     (context, msg) =>
       msg match {
         case ConfirmPaymentReceived =>
-          closed
+          checkoutEventMapper match {
+            case None =>
+              timer.cancel()
+              cartActor.get ! TypedCartActor.ConfirmCheckoutClosed
+              closed
+            case Some(mapper) =>
+              timer.cancel()
+              mapper ! CheckOutClosed
+              closed
+          }
         case ExpirePayment =>
           cancelled
         case CancelCheckout =>
