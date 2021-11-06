@@ -1,1 +1,1 @@
-Konrad Bogusz
+# reactive-lab
