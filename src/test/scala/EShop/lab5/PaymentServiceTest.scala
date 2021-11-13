@@ -20,7 +20,7 @@ class PaymentServiceTest extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     val paymentService =
       testKit.spawn(PaymentService("visa", probe.ref))
 
-    probe.expectMessage(PaymentSucceeded)
+    probe.expectMessage(30.seconds, PaymentSucceeded)
   }
 
   it should "fail if response from external payment http server returned 408 (Request Timeout)" in {
@@ -38,7 +38,7 @@ class PaymentServiceTest extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
       }
     })
 
-    failure.expectMessage("failed")
+    failure.expectMessage(30.seconds, "failed")
   }
 
   it should "fail if response from external payment http server returned 404" in {
@@ -56,6 +56,6 @@ class PaymentServiceTest extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
       }
     })
 
-    failure.expectMessage("failed")
+    failure.expectMessage(30.seconds, "failed")
   }
 }

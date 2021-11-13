@@ -17,6 +17,8 @@ object TypedCheckout {
   case class SelectPayment(payment: String, orderManagerRef: ActorRef[OrderManager.Command]) extends Command
   case object ExpirePayment                                                                  extends Command
   case object ConfirmPaymentReceived                                                         extends Command
+  case object PaymentRejected                                                                extends Command
+  case object PaymentRestarted                                                               extends Command
 
   sealed trait Event
   case object CheckOutClosed                                    extends Event

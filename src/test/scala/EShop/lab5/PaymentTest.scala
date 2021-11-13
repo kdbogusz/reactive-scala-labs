@@ -13,6 +13,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 
 class PaymentTest extends ScalaTestWithActorTestKit with AnyFlatSpecLike {
 
@@ -28,7 +29,7 @@ class PaymentTest extends ScalaTestWithActorTestKit with AnyFlatSpecLike {
 
     payment ! Payment.DoPayment
 
-    manager.expectMessage(OrderManager.ConfirmPaymentReceived)
+    manager.expectMessage(60.seconds, OrderManager.ConfirmPaymentReceived)
 
     server.system.terminate()
   }
@@ -45,7 +46,7 @@ class PaymentTest extends ScalaTestWithActorTestKit with AnyFlatSpecLike {
 
     payment ! Payment.DoPayment
 
-    manager.expectMessage(OrderManager.PaymentRejected)
+    manager.expectMessage(60.seconds, OrderManager.PaymentRejected)
 
     server.system.terminate()
   }
