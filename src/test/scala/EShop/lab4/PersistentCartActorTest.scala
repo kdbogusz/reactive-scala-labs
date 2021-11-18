@@ -75,7 +75,7 @@ class PersistentCartActorTest
     resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
 
     val resultStartCheckout =
-      eventSourcedTestKit.runCommand(StartCheckoutOld(testKit.createTestProbe[OrderManager.Command]().ref))
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
 
     resultStartCheckout.event.isInstanceOf[CheckoutStarted] shouldBe true
     resultStartCheckout.state.isInstanceOf[InCheckout] shouldBe true
@@ -88,7 +88,7 @@ class PersistentCartActorTest
     resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
 
     val resultStartCheckout =
-      eventSourcedTestKit.runCommand(StartCheckoutOld(testKit.createTestProbe[OrderManager.Command]().ref))
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
 
     resultStartCheckout.event.isInstanceOf[CheckoutStarted] shouldBe true
     resultStartCheckout.state.isInstanceOf[InCheckout] shouldBe true
@@ -107,7 +107,7 @@ class PersistentCartActorTest
     resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
 
     val resultStartCheckout =
-      eventSourcedTestKit.runCommand(StartCheckoutOld(testKit.createTestProbe[OrderManager.Command]().ref))
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
 
     resultStartCheckout.event.isInstanceOf[CheckoutStarted] shouldBe true
     resultStartCheckout.state.isInstanceOf[InCheckout] shouldBe true
@@ -126,7 +126,7 @@ class PersistentCartActorTest
     resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
 
     val resultStartCheckout =
-      eventSourcedTestKit.runCommand(StartCheckoutOld(testKit.createTestProbe[OrderManager.Command]().ref))
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
 
     resultStartCheckout.event.isInstanceOf[CheckoutStarted] shouldBe true
     resultStartCheckout.state.isInstanceOf[InCheckout] shouldBe true
@@ -139,7 +139,7 @@ class PersistentCartActorTest
 
   it should "not change state to inCheckout from empty" in {
     val resultStartCheckout =
-      eventSourcedTestKit.runCommand(StartCheckoutOld(testKit.createTestProbe[OrderManager.Command]().ref))
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
 
     resultStartCheckout.hasNoEvents shouldBe true
     resultStartCheckout.state shouldBe Empty
