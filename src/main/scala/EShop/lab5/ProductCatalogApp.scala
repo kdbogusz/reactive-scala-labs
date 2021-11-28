@@ -1,5 +1,7 @@
 package EShop.lab5
 
+import EShop.lab6.{CounterTopic, IncrementCounter}
+import akka.actor.typed.pubsub.Topic
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
@@ -62,10 +64,12 @@ object ProductCatalog {
 
   def apply(searchService: SearchService): Behavior[Query] = Behaviors.setup { context =>
     context.system.receptionist ! Receptionist.register(ProductCatalogServiceKey, context.self)
+    val topic = context.spawn(CounterTopic(), "CounterTopic")
 
     Behaviors.receiveMessage {
       case GetItems(brand, productKeyWords, sender) =>
         sender ! Items(searchService.search(brand, productKeyWords))
+        topic ! Topic.Publish(IncrementCounter)
         Behaviors.same
     }
   }
