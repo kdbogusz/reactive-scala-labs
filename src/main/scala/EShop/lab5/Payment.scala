@@ -20,10 +20,11 @@ object Payment {
   val restartStrategy = SupervisorStrategy.restart.withLimit(maxNrOfRetries = 3, withinTimeRange = 1.second)
 
   def apply(
-             method: String,
-             orderManager: ActorRef[OrderManager.Command],
-             checkout: ActorRef[TypedCheckout.Command]
-           ): Behavior[Message] = Behaviors.supervise(apply2(method, orderManager, checkout)).onFailure[Exception](restartStrategy)
+    method: String,
+    orderManager: ActorRef[OrderManager.Command],
+    checkout: ActorRef[TypedCheckout.Command]
+  ): Behavior[Message] =
+    Behaviors.supervise(apply2(method, orderManager, checkout)).onFailure[Exception](restartStrategy)
 
   def apply2(
     method: String,
@@ -34,9 +35,9 @@ object Payment {
       .receive[Message](
         (context, msg) =>
           msg match {
-            case DoPayment                                       =>
+            case DoPayment =>
               val paymentResponseAdapter = context.messageAdapter(rsp => WrappedPaymentServiceResponse(rsp))
-              val payment = context.spawn(PaymentService.apply(method, paymentResponseAdapter), "payment")
+              val payment                = context.spawn(PaymentService.apply(method, paymentResponseAdapter), "payment")
               context.watch(payment)
               Behaviors.same
             case WrappedPaymentServiceResponse(PaymentSucceeded) =>

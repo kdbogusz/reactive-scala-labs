@@ -16,15 +16,20 @@ object PaymentService {
   case class PaymentClientError() extends Exception
   case class PaymentServerError() extends Exception
 
-  val stopStrategy = SupervisorStrategy.stop
+  val stopStrategy    = SupervisorStrategy.stop
   val restartStrategy = SupervisorStrategy.restart.withLimit(maxNrOfRetries = 3, withinTimeRange = 1.second)
 
   def apply(
-             method: String,
-             payment: ActorRef[Response]
-           ): Behavior[HttpResponse] = Behaviors.supervise(Behaviors.supervise(apply2(method, payment))
-    .onFailure[PaymentServerError](restartStrategy))
-    .onFailure[PaymentClientError](stopStrategy)
+    method: String,
+    payment: ActorRef[Response]
+  ): Behavior[HttpResponse] =
+    Behaviors
+      .supervise(
+        Behaviors
+          .supervise(apply2(method, payment))
+          .onFailure[PaymentServerError](restartStrategy)
+      )
+      .onFailure[PaymentClientError](stopStrategy)
 
   // actor behavior which needs to be supervised
   // use akka.http.scaladsl.Http to make http based payment request
@@ -33,13 +38,13 @@ object PaymentService {
     method: String,
     payment: ActorRef[Response]
   ): Behavior[HttpResponse] = Behaviors.setup { context =>
-    implicit val system = context.system
+    implicit val system           = context.system
     implicit val executionContext = system.executionContext
-    val result = Http().singleRequest(HttpRequest(uri = getURI(method)))
+    val result                    = Http().singleRequest(HttpRequest(uri = getURI(method)))
 
     context.pipeToSelf(result) {
       case Success(value) => value
-      case Failure(e) => throw e
+      case Failure(e)     => throw e
     }
 
     Behaviors.receiveMessage {

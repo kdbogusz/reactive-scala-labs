@@ -14,11 +14,9 @@ import spray.json.DefaultJsonProtocol
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
-object ProductCatalogServer {
-}
+object ProductCatalogServer {}
 
-trait ProductCatalogJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
-}
+trait ProductCatalogJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {}
 
 object ProductCatalogServerApp extends App {
   new ProductCatalogServer().start(9000)
@@ -27,26 +25,31 @@ object ProductCatalogServerApp extends App {
 object ReceptionistQuestion {
   sealed trait Command
   case class FindCatalog(brand: String, productKeyWords: List[String]) extends Command
-  private case class ListingResponse(listing: Receptionist.Listing) extends Command
-  private case class ItemsResponse(items: ProductCatalog.Items) extends Command
+  private case class ListingResponse(listing: Receptionist.Listing)    extends Command
+  private case class ItemsResponse(items: ProductCatalog.Items)        extends Command
 
-  var items: Option[ProductCatalog.Items] = None
-  var brand: Option[String] = None
+  var items: Option[ProductCatalog.Items]   = None
+  var brand: Option[String]                 = None
   var productKeyWords: Option[List[String]] = None
 
   def apply(): Behavior[Command] = {
     Behaviors.setup[Command] { context =>
       val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
-      val itemsResponseAdapter = context.messageAdapter[ProductCatalog.Items](ItemsResponse.apply)
+      val itemsResponseAdapter   = context.messageAdapter[ProductCatalog.Items](ItemsResponse.apply)
 
       Behaviors.receiveMessagePartial {
         case FindCatalog(brand, productKeyWords) =>
           this.brand = Some(brand)
           this.productKeyWords = Some(productKeyWords)
-          context.system.receptionist ! Receptionist.Find(ProductCatalog.ProductCatalogServiceKey, listingResponseAdapter)
+          context.system.receptionist ! Receptionist.Find(
+            ProductCatalog.ProductCatalogServiceKey,
+            listingResponseAdapter
+          )
           Behaviors.same
         case ListingResponse(ProductCatalog.ProductCatalogServiceKey.Listing(listings)) =>
-          listings.foreach(listing => listing ! GetItems(brand.get, productKeyWords.get, itemsResponseAdapter.unsafeUpcast))
+          listings.foreach(
+            listing => listing ! GetItems(brand.get, productKeyWords.get, itemsResponseAdapter.unsafeUpcast)
+          )
           Behaviors.same
         case ItemsResponse(items) =>
           this.items = Some(items)
@@ -57,32 +60,39 @@ object ReceptionistQuestion {
 }
 
 class ProductCatalogServer extends ProductCatalogJsonSupport {
-  implicit val system: ActorSystem[ReceptionistQuestion.Command] = ActorSystem(ReceptionistQuestion.apply(), "ProductCatalog")
+  implicit val system: ActorSystem[ReceptionistQuestion.Command] =
+    ActorSystem(ReceptionistQuestion.apply(), "ProductCatalog")
 
   def routes: Route = {
 
     path("productcatalog") {
-          get {
-            parameters("brand".as[String], "productKeyWords".as[String]) {
-              (brand, productKeyWords) =>
-                system ! FindCatalog(brand, productKeyWords.split(" ").toList)
-                Thread.sleep(5000)
-                val items = ReceptionistQuestion.items
-                if (items.isEmpty) {
-                  complete {
-                    Future.successful("[]")
-                  }
-                } else {
-                  complete {
-                    var result = "["
-                    items.foreach(itemList => itemList.items.foreach(item => result = result ++ ("{\"id\":\"" ++ item.id.toString ++ "\",\"name\":\"" ++ item.name ++ "\",\"brand\":\"" ++ item.brand  ++ "\",\"price\":" ++ item.price.toString() ++ ",\"count\":" ++ item.count.toString ++ "},")))
-                    result = result.substring(0, result.length - 1)
-                    result = result ++ "]"
-                    Future.successful(result)
-                  }
-                }
+      get {
+        parameters("brand".as[String], "productKeyWords".as[String]) { (brand, productKeyWords) =>
+          system ! FindCatalog(brand, productKeyWords.split(" ").toList)
+          Thread.sleep(5000)
+          val items = ReceptionistQuestion.items
+          if (items.isEmpty) {
+            complete {
+              Future.successful("[]")
+            }
+          } else {
+            complete {
+              var result = "["
+              items.foreach(
+                itemList =>
+                  itemList.items.foreach(
+                    item =>
+                      result = result ++ ("{\"id\":\"" ++ item.id.toString ++ "\",\"name\":\"" ++ item.name ++ "\",\"brand\":\"" ++ item.brand ++ "\",\"price\":" ++ item.price
+                        .toString() ++ ",\"count\":" ++ item.count.toString ++ "},")
+                )
+              )
+              result = result.substring(0, result.length - 1)
+              result = result ++ "]"
+              Future.successful(result)
             }
           }
+        }
+      }
     }
   }
 
